@@ -479,22 +479,6 @@
     </button>
   </div>
 
-  <!-- 新聞主題設定遮罩 (News Settings Modal) -->
-  <div id="news-settings-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;">
-    <div class="card" style="width:90%; max-width:400px; padding:30px;">
-      <h3 style="margin-bottom:16px; color:var(--accent-color);">設定你的 3 個追蹤主題</h3>
-      <p style="font-size:14px; color:var(--text-muted); margin-bottom:20px;">每次打開都會即時從網路抓取最新資訊！(支援空白隔開多組關鍵字，例如: 蘋果 AI)</p>
-      
-      <input type="text" id="topic-0" class="input-field" style="margin-bottom:10px;" placeholder="主題一 (例: 台股大盤)">
-      <input type="text" id="topic-1" class="input-field" style="margin-bottom:10px;" placeholder="主題二 (例: 生成式 AI)">
-      <input type="text" id="topic-2" class="input-field" style="margin-bottom:20px;" placeholder="主題三 (例: 英國留學)">
-      
-      <div style="display:flex; gap:10px; justify-content:flex-end;">
-        <button class="btn" style="background:transparent; color:var(--text-muted); border:1px solid #ccc; padding:8px 16px;" onclick="document.getElementById('news-settings-modal').style.display='none'">取消</button>
-        <button class="btn" style="padding:8px 16px;" onclick="saveNewsSettings()">💾 儲存並抓取</button>
-      </div>
-    </div>
-  </div>
 
   <!-- 置頂導覽列 -->
   <nav class="navbar">
@@ -564,26 +548,23 @@
   <main id="hub" class="tab-content">
     <div class="hub-header">
       <div style="display:flex; flex-direction:column;">
-        <h2 style="color:var(--text-main); font-size: 22px; font-weight:600; margin-bottom:4px;">即時個人新聞庫</h2>
-        <span id="hub-last-sync" style="font-size:12px; color:var(--text-muted);">Last Fetch: 等待抓取中...</span>
+        <h2 style="color:var(--text-main); font-size: 22px; font-weight:600; margin-bottom:4px;">個人專屬新聞庫</h2>
+        <span id="hub-last-sync" style="font-size:12px; color:var(--text-muted);">Last Sync: --</span>
       </div>
-      <div>
-        <button class="btn" style="background:transparent; border:1px solid var(--accent-color); color:var(--accent-color); padding:8px 14px; margin-right:8px;" onclick="openNewsSettings()">⚙️ 設定主題</button>
-        <button class="btn" style="padding:8px 14px;" onclick="fetchLiveNews(true)">🔄 即時更新</button>
-      </div>
+      <button class="btn" style="padding:8px 14px;" onclick="fetchExternalData(true)">🔄 手動讀取更新</button>
     </div>
     
     <div class="hub-grid">
       <div class="hub-column">
-        <h3 class="hub-col-title" id="hub-title-0">📰 即時新聞板塊 1</h3>
+        <h3 class="hub-col-title" id="hub-title-0">📈 台股投資新聞</h3>
         <div id="hub-col-0" style="display:flex; flex-direction:column; gap:12px;"></div>
       </div>
       <div class="hub-column">
-        <h3 class="hub-col-title" id="hub-title-1">📰 即時新聞板塊 2</h3>
+        <h3 class="hub-col-title" id="hub-title-1">🤖 AI 技術更新</h3>
         <div id="hub-col-1" style="display:flex; flex-direction:column; gap:12px;"></div>
       </div>
       <div class="hub-column">
-        <h3 class="hub-col-title" id="hub-title-2">📰 即時新聞板塊 3</h3>
+        <h3 class="hub-col-title" id="hub-title-2">✈️ 全球移民與留學</h3>
         <div id="hub-col-2" style="display:flex; flex-direction:column; gap:12px;"></div>
       </div>
     </div>
@@ -735,20 +716,8 @@
          }
        });
        
-       // 3. 同步新聞觀測站偏好設定
-       docRef.collection('settings').doc('topics').get().then(docSnap => {
-          if (docSnap.exists) {
-            const data = docSnap.data();
-            if(data.topics && data.topics.length === 3) {
-              newsTopics = data.topics;
-            }
-          } else {
-            // 如果沒有雲端設定，寫入預設設定
-            db.collection('users').doc(currentUser.uid).collection('settings').doc('topics').set({ topics: newsTopics });
-          }
-          // 有了設定後，抓取即時新聞
-          fetchLiveNews(false);
-       });
+       // 3. 靜默讀取排程產出之新聞 JSON
+       fetchExternalData(false);
     }
 
     // 寫入遠端行事曆
@@ -1071,99 +1040,52 @@
     renderCalendarGrid();
 
     /******************************************************************
-     * 3. 核心功能二：自訂即時新聞庫 (Intelligence Hub)
+     * 3. 核心功能二：個人專屬新聞庫 (靜態 JSON，每天早上 8 點自動更新)
      ******************************************************************/
-    let newsTopics = ["台股", "生成式 AI", "英國留學 移民"]; // 預設 3 個追蹤主題
-    let globalNewsData = [[], [], []];
+    let globalNewsData = JSON.parse(localStorage.getItem('ai_hub_newsData')) || { lastSync: 'N/A', topics: [] };
 
-    // 打開設定
-    function openNewsSettings() {
-      document.getElementById('topic-0').value = newsTopics[0] || '';
-      document.getElementById('topic-1').value = newsTopics[1] || '';
-      document.getElementById('topic-2').value = newsTopics[2] || '';
-      document.getElementById('news-settings-modal').style.display = 'flex';
-    }
-
-    // 儲存設定並寫入 Firebase
-    async function saveNewsSettings() {
-      const t0 = document.getElementById('topic-0').value.trim();
-      const t1 = document.getElementById('topic-1').value.trim();
-      const t2 = document.getElementById('topic-2').value.trim();
-      
-      newsTopics = [t0 || '推薦新聞', t1 || '科技情報', t2 || '國際大事'];
-      
-      document.getElementById('news-settings-modal').style.display = 'none';
-      
-      if(currentUser) {
-        await db.collection('users').doc(currentUser.uid).collection('settings').doc('topics').set({ topics: newsTopics });
-      }
-      
-      fetchLiveNews(true);
-    }
-
-    // 即時抓取新聞函數 (透過 allorigins proxy 穿透 Google RSS CORS)
-    async function fetchLiveNews(manualClick = false) {
-      if(manualClick) document.getElementById('hub-last-sync').innerText = "Last Fetch: 🌐 正在全網即時抓取中...";
-      
-      for(let i=0; i<3; i++) {
-        document.getElementById(`hub-title-${i}`).innerText = `📰 ${newsTopics[i]}`;
-        document.getElementById(`hub-col-${i}`).innerHTML = `<div style="color:var(--text-muted); font-size:13px; padding:10px;">⏳ 即時整理最新情報中...</div>`;
-      }
-      
+    async function fetchExternalData(manualClick = false) {
       try {
-        const promises = newsTopics.map(async (topic, i) => {
-          const query = encodeURIComponent(topic.replace(/ /g, ' OR '));
-          // Google News RSS URL
-          const rssUrl = encodeURIComponent(`https://news.google.com/rss/search?q=${query}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`);
-          // 使用 allorigins proxy 避免在瀏覽器端被阻擋
-          const res = await fetch(`https://api.allorigins.win/get?url=${rssUrl}`);
-          if (!res.ok) throw new Error("API Proxy Error");
-          
-          const wrapper = await res.json();
-          const xmlText = wrapper.contents;
-          
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-          const items = Array.from(xmlDoc.querySelectorAll('item')).slice(0, 5); // 每個主題取前 5 篇重點
-          
-          const parsedItems = items.map(node => {
-             const title = node.querySelector('title')?.textContent || '無標題';
-             const link = node.querySelector('link')?.textContent || '#';
-             const pubDate = node.querySelector('pubDate')?.textContent || '';
-             // 取出短短的時間描述 (例如：只留時間不需要整個時區)
-             const timeMatch = pubDate.match(/^(.+? \\d{4} \\d{2}:\\d{2})/);
-             const timeStr = timeMatch ? timeMatch[1] : pubDate;
-             
-             return { title, link, summary: '', time: timeStr };
-          });
-          
-          globalNewsData[i] = parsedItems;
-        });
+        // cache busting 防止快取
+        const response = await fetch('news_briefing.json?t=' + Date.now());
+        if (!response.ok) throw new Error('news_briefing.json 讀取失敗');
         
-        await Promise.all(promises);
-        
-        const now = new Date();
-        document.getElementById('hub-last-sync').innerText = `Last Fetch: ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')} 抓取成功！`;
-        
+        const data = await response.json();
+        globalNewsData = data;
+        localStorage.setItem('ai_hub_newsData', JSON.stringify(globalNewsData));
         renderHubCards();
+        if (manualClick) alert('✨ 已成功讀取最新每日情報！');
       } catch (e) {
-        console.error("抓取新聞失敗:", e);
-        document.getElementById('hub-last-sync').innerText = `Last Fetch: ❌ 網路錯誤或代理伺服器忙碌中`;
+        console.warn('外部加載失敗，切回 LocalStorage', e);
+        if (manualClick) alert('🚫 讀取 news_briefing.json 失敗！目前顯示快取中的昨日資料。');
+        renderHubCards();
       }
     }
 
     function renderHubCards() {
-      for(let i=0; i<3; i++) {
+      document.getElementById('hub-last-sync').innerText = `Last Sync: ${globalNewsData.lastSync || 'N/A'}`;
+      const topics = globalNewsData.topics || [];
+
+      for (let i = 0; i < 3; i++) {
         const el = document.getElementById(`hub-col-${i}`);
-        const items = globalNewsData[i];
-        
-        if (!items || items.length === 0) {
-          el.innerHTML = '<div style="font-size:12px; color:var(--text-muted); font-style:italic; padding:10px;">目前此板塊暫無任何相關情報。</div>';
+        const topicData = topics[i];
+
+        if (!topicData) {
+          el.innerHTML = '<div style="font-size:12px; color:var(--text-muted); font-style:italic; padding:10px;">等待今日資料更新...</div>';
           continue;
         }
-        
+
+        // 讓版塊標題跟著 scraper.py 裡的 DISPLAY_NAMES 自動更新
+        document.getElementById(`hub-title-${i}`).innerText = topicData.title;
+
+        const items = topicData.articles;
+        if (!items || items.length === 0) {
+          el.innerHTML = '<div style="font-size:12px; color:var(--text-muted); font-style:italic; padding:10px;">目前此板塊暫無情報。</div>';
+          continue;
+        }
+
         el.innerHTML = items.map(t => `
-          <div class="hub-card" style="cursor: pointer;" onclick="window.open('${t.link}', '_blank')">
+          <div class="hub-card" style="cursor:pointer;" onclick="if('${t.link||''}' !== '#') window.open('${t.link}','_blank')">
             <div class="hub-card-time">${t.time}</div>
             <div class="hub-card-title">${t.title}</div>
             <div class="hub-card-summary" style="margin-top:0;">(點擊前往 Google News 閱讀原文)</div>
@@ -1171,31 +1093,30 @@
         `).join('');
       }
     }
-    
+
     function importLangTechNews() {
-      // 預設引用「第二個板塊」的新聞
-      const targetNews = globalNewsData[1];
-      if (!targetNews || targetNews.length === 0) {
-        alert("資料庫中目前沒有情報可供引用！");
+      const topics = globalNewsData.topics || [];
+      const targetTopic = topics[1];
+      if (!targetTopic || !targetTopic.articles || targetTopic.articles.length === 0) {
+        alert('資料庫中目前沒有情報可供引用！請等待今日早上 8 點自動更新。');
         return;
       }
-      
+      const targetNews = targetTopic.articles;
+
       let refHtml = `<div contenteditable="false" style="background:#FDFDFD; border-left: 3px solid var(--accent-color); padding:12px; margin: 12px 0; border-radius:4px; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">`;
-      refHtml += `<strong style="color:var(--accent-color); font-size:12px; font-weight:600; display:block; margin-bottom:8px;">【📝 參考智庫：今日 [${newsTopics[1]}] 焦點】</strong>`;
-      
+      refHtml += `<strong style="color:var(--accent-color); font-size:12px; font-weight:600; display:block; margin-bottom:8px;">【📝 參考智庫：今日 [${targetTopic.title}] 焦點】</strong>`;
       targetNews.forEach(news => {
         refHtml += `<div style="margin-bottom:8px;"><strong style="font-size:14px; color:var(--text-main);">${news.title}</strong><br><a href="${news.link}" target="_blank" style="font-size:12px; color:var(--accent-color);">閱讀原文</a></div>`;
       });
       refHtml += `</div><p><br></p>`;
-      
-      // 確保游標 Focus 並插入編輯內容
+
       const lessonInputEl = document.getElementById('lesson-input');
       lessonInputEl.focus();
       document.execCommand('insertHTML', false, refHtml);
-      
+
       const statusText = document.getElementById('save-status');
-      statusText.innerText = "✏️ 外部情報已引用，尚未儲存";
-      statusText.style.color = "var(--accent-color)";
+      statusText.innerText = '✏️ 外部情報已引用，尚未儲存';
+      statusText.style.color = 'var(--accent-color)';
     }
 
     /******************************************************************
