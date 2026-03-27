@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>個人 AI 成長指揮中心</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    /* =========================================================================
+       1. 設計美學 (Kodak/Fuji Aesthetic Colors & Typography)
+       ========================================================================= */
+    :root {
+      --bg-color: #F5F5F5;        /* 極簡冷調白背景 */
+      --card-bg: #EBF0EC;         /* Fuji 經典負片色調 (灰綠色) 面板 */
+      --accent-color: #5E81AC;    /* Kodak Portra 陰影藍 (沈穩冷色) */
+      --text-main: #2E3440;       /* 深炭灰色字體 */
+      --text-muted: #4C566A;      /* 次要灰色字體 */
+      --border-color: rgba(0, 0, 0, 0.05); /* 極細透明邊框 */
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.03); /* 微弱專業陰影 */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden; /* 防止整個 Body 出現卷軸 */
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* =========================================================================
+       2. 導覽列與分頁架構 (Tabbed Interface & Layout)
+       ========================================================================= */
+    .navbar {
+      display: flex;
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 16px 12px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+      outline: none;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-color);
+      border-bottom: 2px solid var(--accent-color);
+      font-weight: 600;
+    }
+
+    .tab-content {
+      flex-grow: 1;
+      overflow-y: auto;  /* 僅允許內部內容垂直捲動 */
+      display: none;     /* 預設隱藏 */
+      padding: 24px;
+      background-color: var(--bg-color);
+    }
+
+    .tab-content.active {
+      display: block;    /* 啟動時顯示 */
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 共用元件樣式 */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 16px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 14px;
+      font-size: 15px;
+      font-family: inherit;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 6px;
+      background-color: #FFFFFF;
+      color: var(--text-main);
+      transition: border-color 0.2s;
+      outline: none;
+      resize: vertical;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent-color);
+    }
+
+    /* 富文本輸入框佔位文字特效 */
+    .input-field[contenteditable]:empty::before {
+      content: attr(data-placeholder);
+      color: var(--text-muted);
+      opacity: 0.6;
+      font-style: italic;
+      cursor: text;
+    }
+
+    /* 多媒體容器 (避免圖片過大) */
+    .media-container {
+      margin: 12px 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .btn {
+      background-color: var(--accent-color);
+      color: #FFFFFF;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    /* =========================================================================
+       3. 智慧行事曆專屬樣式 (Calendar Hub - Google Calendar Grid + Todo)
+       ========================================================================= */
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    
+    .calendar-nav-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--text-main);
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    .calendar-nav-btn:hover { background: rgba(0,0,0,0.05); }
+    
+    .calendar-grid-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+      background-color: var(--border-color);
+      border: 1px solid var(--border-color);
+      border-radius: 8px 8px 0 0;
+    }
+    
+    .calendar-day-label {
+      background-color: var(--card-bg);
+      text-align: center;
+      padding: 10px;
+      font-weight: 500;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    #calendar-grid-cells {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+      background-color: var(--border-color);
+      border: 1px solid var(--border-color);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      margin-bottom: 24px;
+    }
+
+    .calendar-cell {
+      background-color: #FFFFFF;
+      min-height: 90px;
+      padding: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .calendar-cell:hover {
+      background-color: #FAFAFA;
+    }
+
+    .calendar-cell.active-day {
+      background-color: rgba(94, 129, 172, 0.05); /* Accent tint */
+      box-shadow: inset 0 0 0 2px var(--accent-color);
+    }
+
+    .calendar-cell.other-month {
+      background-color: #FDFDFD;
+      color: #D8D8D8;
+    }
+    
+    .calendar-cell.other-month .calendar-date-number {
+      color: #999;
+    }
+
+    .calendar-date-number {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      align-self: flex-start;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-main);
+    }
+
+    .calendar-cell.today .calendar-date-number {
+      background-color: var(--accent-color);
+      color: white;
+    }
+
+    .calendar-event-chip {
+      background-color: var(--card-bg);
+      color: var(--accent-color);
+      font-size: 11px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-left: 3px solid var(--accent-color);
+    }
+
+    .calendar-event-chip.completed {
+      opacity: 0.5;
+      text-decoration: line-through;
+      border-left-color: #A0A5AD;
+      color: var(--text-muted);
+    }
+
+    /* 每日待辦清單 (Todo Box) */
+    .todo-container {
+      background: #FFFFFF;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+    }
+    
+    .todo-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--card-bg);
+      border-radius: 8px 8px 0 0;
+      font-weight: 600;
+      color: var(--accent-color);
+      font-size: 16px;
+    }
+
+    .todo-list-body {
+      padding: 10px 20px;
+      min-height: 100px;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.03);
+    }
+    .todo-item:last-child { border-bottom: none; }
+
+    .todo-checkbox {
+      margin-right: 14px;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-color);
+      cursor: pointer;
+    }
+
+    .todo-text {
+      flex-grow: 1;
+      font-size: 15px;
+      color: var(--text-main);
+      transition: all 0.2s;
+    }
+    
+    .todo-text.completed {
+      text-decoration: line-through;
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    .todo-category {
+      font-size: 11px;
+      background: var(--bg-color);
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: var(--text-muted);
+    }
+
+
+    /* =========================================================================
+       4. 新聞觀測站專屬樣式 (Intelligence Hub Dashboard)
+       ========================================================================= */
+    .hub-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .hub-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .hub-column {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 200px;
+    }
+    .hub-col-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent-color);
+      border-bottom: 2px solid rgba(0,0,0,0.05);
+      padding-bottom: 12px;
+    }
+    .hub-card {
+      background: #FFFFFF;
+      border-radius: 6px;
+      padding: 14px;
+      border: 1px solid var(--border-color);
+      transition: transform 0.2s;
+    }
+    .hub-card:hover { 
+      transform: translateY(-2px); 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .hub-card-time {
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .hub-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .hub-card-summary {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* =========================================================================
+       5. 教材設計實驗室專屬樣式 (Lesson Alchemist)
+       ========================================================================= */
+    .input-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    .asset-section {
+      background-color: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .asset-header {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent-color);
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+    }
+
+    .asset-content {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-main);
+    }
+    
+    .asset-content ul {
+      margin-left: 20px;
+      margin-top: 10px;
+    }
+
+    .prompt-box {
+      background-color: #F8F9FA;
+      border: 1px solid rgba(0,0,0,0.05);
+      border-radius: 6px;
+      padding: 16px;
+      font-family: monospace;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 置頂導覽列 -->
+  <nav class="navbar">
+    <button class="tab-btn active" onclick="switchTab('calendar', this)">智慧行事曆</button>
+    <button class="tab-btn" onclick="switchTab('hub', this)">新聞觀測站</button>
+    <button class="tab-btn" onclick="switchTab('alchemist', this)">教材設計實驗室</button>
+  </nav>
+  
+  <!-- ==========================================
+       TAB 1: 智慧行事曆 (Calendar Hub)
+       ========================================== -->
+  <main id="calendar" class="tab-content active">
+    <!-- 輸入區域 -->
+    <div class="card">
+      <div class="card-title">向 AI 下達行程與待辦指令</div>
+      <input type="text" id="calendar-input" class="input-field" placeholder="💡 例：明天下午 3 點備課討論，類別是工作... (無標示日期將預設今天)">
+      <div class="input-actions" style="justify-content: space-between; align-items: center;">
+        <span style="font-size: 13px; color: var(--text-muted);">支援自然語言識別 (今天 / 明天 / 後天 / 下週 等關鍵字)</span>
+        <button class="btn" onclick="addCalendarEvent()"><span>建立網格行程</span></button>
+      </div>
+    </div>
+
+    <!-- 月曆控制區域 -->
+    <div class="calendar-header">
+      <h3 id="calendar-month-title" style="font-size: 20px; margin:0; color: var(--text-main); font-weight:600;">2026年 3月</h3>
+      <div>
+        <button class="calendar-nav-btn" onclick="changeMonth(-1)">◀ 上個月</button>
+        <button class="calendar-nav-btn" onclick="gotoToday()">回到今天</button>
+        <button class="calendar-nav-btn" onclick="changeMonth(1)">下個月 ▶</button>
+      </div>
+    </div>
+    
+    <!-- 網格月曆渲染區 -->
+    <div class="calendar-grid-header">
+      <div class="calendar-day-label">週日 Sun</div>
+      <div class="calendar-day-label">週一 Mon</div>
+      <div class="calendar-day-label">週二 Tue</div>
+      <div class="calendar-day-label">週三 Wed</div>
+      <div class="calendar-day-label">週四 Thu</div>
+      <div class="calendar-day-label">週五 Fri</div>
+      <div class="calendar-day-label">週六 Sat</div>
+    </div>
+    <div id="calendar-grid-cells">
+      <!-- Grid will be injected via JS -->
+    </div>
+
+    <!-- 每日待辦清單 (Daily Todo Viewer) -->
+    <div class="todo-container">
+      <div class="todo-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <span id="todo-date-title">選擇的日期待辦清單</span>
+        <div>
+          <input type="file" id="ics-upload" accept=".ics" style="display: none;" onchange="importFromICS(event)">
+          <button class="btn" style="padding: 6px 12px; font-size: 13px; background: transparent; border: 1px solid var(--accent-color); color: var(--accent-color);" onclick="document.getElementById('ics-upload').click()">📤 讀取外部 .ics</button>
+          <button class="btn" style="padding: 6px 12px; font-size: 13px; background: transparent; border: 1px solid var(--accent-color); color: var(--accent-color);" onclick="exportToICS()">📥 匯出行事曆 .ics</button>
+        </div>
+      </div>
+      <div class="todo-list-body" id="todo-list">
+         <!-- Todo Items injected here -->
+      </div>
+    </div>
+  </main>
+
+  <!-- ==========================================
+       TAB 2: 新聞觀測站 (Intelligence Hub)
+       ========================================== -->
+  <main id="hub" class="tab-content">
+    <div class="hub-header">
+      <div style="display:flex; flex-direction:column;">
+        <h2 style="color:var(--text-main); font-size: 22px; font-weight:600; margin-bottom:4px;">AI 情報觀測儀表板</h2>
+        <span id="hub-last-sync" style="font-size:12px; color:var(--text-muted);">Last Sync: --</span>
+      </div>
+      <button class="btn" style="background:transparent; border:1px solid var(--accent-color); color:var(--accent-color); padding:8px 14px;" onclick="fetchExternalData(true)">🔄 手動抓取 Data</button>
+    </div>
+    
+    <div class="hub-grid">
+      <!-- 財經觀測 -->
+      <div class="hub-column">
+        <h3 class="hub-col-title">📈 財經觀測 (Taiwan Stock Market)</h3>
+        <div id="hub-col-finance" style="display:flex; flex-direction:column; gap:12px;"></div>
+      </div>
+      <!-- 語言科技職涯 -->
+      <div class="hub-column">
+        <h3 class="hub-col-title">🤖 語言科技職涯 (Lang-Tech Jobs)</h3>
+        <div id="hub-col-langtech" style="display:flex; flex-direction:column; gap:12px;"></div>
+      </div>
+      <!-- 留學移民情報 -->
+      <div class="hub-column">
+        <h3 class="hub-col-title">✈️ 留學移民情報 (Study Abroad & Migration)</h3>
+        <div id="hub-col-migration" style="display:flex; flex-direction:column; gap:12px;"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==========================================
+       TAB 3: 教材設計實驗室 (Lesson Alchemist)
+       ========================================== -->
+  <main id="alchemist" class="tab-content">
+    <!-- 輸入區域 -->
+    <div class="card">
+      <div class="card-title">原始教學內容輸入 (支援多媒體)</div>
+      
+      <!-- 富文本輸入區：支援剪貼簿貼上圖片/影音 -->
+      <div id="lesson-input" class="input-field" contenteditable="true" style="min-height: 180px; max-height: 480px; overflow-y: auto;" data-placeholder="📋 您可直接貼上文字筆記，或直接 (Ctrl+V / Cmd+V) 貼上影片、音檔及圖片，因為 IndexedDB 關閉網頁也可完整保留！"></div>
+      
+      <div class="input-actions" style="justify-content: space-between; align-items: center;">
+        <div>
+          <button class="btn" style="background:var(--card-bg); color:var(--text-main); border:1px solid var(--border-color); font-size:13px; padding:8px 12px;" onclick="manualSaveDraft()">💾 儲存草稿</button>
+          <span id="save-status" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;">尚未變更</span>
+        </div>
+        <div>
+          <button class="btn" style="background:var(--card-bg); color:var(--accent-color); border:1px solid var(--accent-color); font-size:13px; padding:8px 12px; margin-right:8px;" onclick="importLangTechNews()">📰 引用語言科技情報</button>
+          <button class="btn" onclick="transformLessonContent()">✨ 轉化為專業教材資產</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 即時預覽渲染區 (初始隱藏，生成後顯示) -->
+    <div id="assets-preview-container" style="display: none;">
+      <h3 style="font-size: 16px; color: var(--text-main); margin-bottom: 16px;">產出資產清單 (Asset List)</h3>
+      
+      <div class="asset-section">
+        <div class="asset-header">📝 文字模組 (Text Module)</div>
+        <div id="asset-text-module" class="asset-content">
+          <!-- 生成的教學結構 HTML 放這邊 -->
+        </div>
+      </div>
+
+      <div class="asset-section">
+        <div class="asset-header">🎨 圖像卡片提示詞 (Image Prompt Card)</div>
+        <div id="asset-prompt-module" class="prompt-box">
+          <!-- 生成的 AI 繪圖 Prompt 放這邊 -->
+        </div>
+      </div>
+
+      <div class="input-actions" style="margin-bottom: 40px;">
+        <button class="btn" onclick="exportAssetsPackage()">📥 匯出資產包 (HTML)</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /******************************************************************
+     * 1. 基礎架構：分頁切換邏輯
+     ******************************************************************/
+    function switchTab(tabId, btnElement) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btnElement.classList.add('active');
+    }
+
+    /******************************************************************
+     * 2. 核心功能一：智慧行事曆 (Calendar Hub - Google Grid & Todo)
+     ******************************************************************/
+    // Data Model: [{ id, date: "YYYY-MM-DD", timeStr, category, title, completed }]
+    let calendarEvents = JSON.parse(localStorage.getItem('ai_calendar_events') || '[]');
+    
+    // View State
+    let currentViewDate = new Date();
+    let selectedDate = new Date(); // 當前點擊的目標日，影響下方待辦
+
+    // Helper: 格式化日期轉成 "YYYY-MM-DD"
+    function formatYYYYMMDD(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    // 更新月曆畫面與網格
+    function renderCalendarGrid() {
+      const year = currentViewDate.getFullYear();
+      const month = currentViewDate.getMonth();
+      
+      const monthNames = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+      document.getElementById('calendar-month-title').innerText = `${year}年 ${monthNames[month]}`;
+      
+      const gridEl = document.getElementById('calendar-grid-cells');
+      gridEl.innerHTML = '';
+      
+      const firstDay = new Date(year, month, 1).getDay(); // 第一天是星期幾 (0-6)
+      const daysInMonth = new Date(year, month + 1, 0).getDate(); // 這個月天數
+      const prevMonthDays = new Date(year, month, 0).getDate(); // 上個月天數
+      
+      let gridHTML = '';
+      const todayStr = formatYYYYMMDD(new Date());
+      const selectedStr = formatYYYYMMDD(selectedDate);
+      
+      // 繪製上個月留下來的空白填充格
+      for (let i = firstDay - 1; i >= 0; i--) {
+        const d = prevMonthDays - i;
+        const dateStr = formatYYYYMMDD(new Date(year, month - 1, d));
+        gridHTML += generateDayCellHTML(dateStr, d, 'other-month');
+      }
+      
+      // 繪製這個月的主要格子
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = formatYYYYMMDD(new Date(year, month, d));
+        let classes = '';
+        if (dateStr === todayStr) classes += ' today ';
+        if (dateStr === selectedStr) classes += ' active-day ';
+        
+        gridHTML += generateDayCellHTML(dateStr, d, classes);
+      }
+      
+      // 繪製下個月的開頭來把方格補滿 (讓排版保持工整)
+      const totalCells = firstDay + daysInMonth;
+      const remainingCells = (Math.ceil(totalCells / 7) * 7) - totalCells;
+      for (let d = 1; d <= remainingCells; d++) {
+        const dateStr = formatYYYYMMDD(new Date(year, month + 1, d));
+        gridHTML += generateDayCellHTML(dateStr, d, 'other-month');
+      }
+      
+      gridEl.innerHTML = gridHTML;
+      
+      // 網格重新繪製完成後，同步刷新下方的 Todo 清單
+      renderDailyTodoList();
+    }
+
+    // 負責生產一格日曆方塊的 HTML
+    function generateDayCellHTML(dateStr, dayNum, extraClass) {
+      // 濾出這天的事件以顯示在格子內部
+      const dayEvents = calendarEvents.filter(e => e.date === dateStr);
+      let chipsHtml = '';
+      
+      dayEvents.forEach(e => {
+        const compClass = e.completed ? 'completed' : '';
+        chipsHtml += `<div class="calendar-event-chip ${compClass}">${e.title}</div>`;
+      });
+      
+      return `
+        <div class="calendar-cell ${extraClass}" onclick="selectDate('${dateStr}')">
+          <div class="calendar-date-number">${dayNum}</div>
+          <div class="calendar-chips">${chipsHtml}</div>
+        </div>
+      `;
+    }
+
+    // 點擊事件：切換選中日期，並重新渲染 Todo List
+    function selectDate(dateStr) {
+      selectedDate = new Date(dateStr);
+      
+      // 假如點擊的是隔壁月的灰格子，將日曆也導航過去
+      if (selectedDate.getMonth() !== currentViewDate.getMonth()) {
+        currentViewDate = new Date(selectedDate);
+      }
+      renderCalendarGrid(); // Re-render to highlight correctly
+    }
+    
+    // Calendar Navigation Commands
+    function changeMonth(delta) {
+      currentViewDate.setMonth(currentViewDate.getMonth() + delta);
+      renderCalendarGrid();
+    }
+    function gotoToday() {
+      const t = new Date();
+      currentViewDate = new Date(t);
+      selectedDate = new Date(t);
+      renderCalendarGrid();
+    }
+
+    // 產生下方的 Daily Todo List
+    function renderDailyTodoList() {
+      const container = document.getElementById('todo-list');
+      const dateStr = formatYYYYMMDD(selectedDate);
+      const todaysEvents = calendarEvents.filter(e => e.date === dateStr);
+      
+      document.getElementById('todo-date-title').innerText = `📝 ${dateStr} 焦點任務與待辦清單`;
+      
+      if (todaysEvents.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding: 20px 0; color: var(--text-muted); font-size:14px; font-style:italic;">您這天沒有安排任何行程或任務呢。</div>';
+        return;
+      }
+      
+      let html = '';
+      todaysEvents.forEach(e => {
+        const isChecked = e.completed ? 'checked' : '';
+        const textClass = e.completed ? 'completed' : '';
+        
+        let timeTagHtml = e.timeStr && e.timeStr !== '整日' ? `<span style="color:var(--accent-color); font-weight:600; margin-right:8px; font-size:14px;">[${e.timeStr}]</span>` : '';
+        
+        html += `
+          <div class="todo-item">
+            <input type="checkbox" class="todo-checkbox" ${isChecked} onchange="toggleTodoStatus('${e.id}', this.checked)">
+            <div class="todo-text ${textClass}">${timeTagHtml}${e.title}</div>
+            <div class="todo-category">${e.category}</div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    // 切換 Todo 完成狀態 (打勾)
+    function toggleTodoStatus(id, isChecked) {
+      const targetEvent = calendarEvents.find(e => e.id === id);
+      if (targetEvent) {
+        targetEvent.completed = isChecked;
+        // 覆寫存檔確保狀態同步
+        localStorage.setItem('ai_calendar_events', JSON.stringify(calendarEvents));
+        renderCalendarGrid(); // 重新觸發刷新，讓方格裡的標籤也會變為已完成樣式
+      }
+    }
+
+    /* 
+     * [升級版模擬 AI 接口] 支援抽出真實時間 YYYY-MM-DD 送去建立網格
+     */
+    function processCalendarAI(inputString) {
+      const today = new Date();
+      let extractedCategory = "一般隨筆";
+      
+      // 原本只是存字串，現在給予確切的時間變數
+      let targetDate = new Date(); // 預設今天為歸屬
+      let timeStr = "整日";
+      
+      // 計算真實日期 (NLP)
+      if (inputString.includes("明天")) targetDate.setDate(today.getDate() + 1);
+      else if (inputString.includes("後天")) targetDate.setDate(today.getDate() + 2);
+      else if (inputString.includes("下週")) targetDate.setDate(today.getDate() + 7);
+      
+      // 計算時間標誌
+      if (inputString.match(/(\S*點)/)) {
+        timeStr = inputString.match(/(\S*點)/)[0];
+        if (inputString.includes("早上") && !timeStr.includes("早上")) timeStr = "早上 " + timeStr;
+        if (inputString.includes("下午") && !timeStr.includes("下午")) timeStr = "下午 " + timeStr;
+      }
+
+      // 提取分類
+      if (inputString.includes("作") || inputString.includes("會")) extractedCategory = "工作專案";
+      else if (inputString.includes("課") || inputString.includes("教")) extractedCategory = "教案準備";
+      else if (inputString.includes("學") || inputString.includes("讀")) extractedCategory = "個人成長";
+
+      // 洗去時間口語，提取乾淨的待辦敘述
+      let cleanTitle = inputString.replace(/今天|明天|後天|早上|下午|晚上|\S*點/g, '').trim();
+      if(!cleanTitle) cleanTitle = "未明說事項";
+
+      return {
+        id: Date.now().toString(),
+        date: formatYYYYMMDD(targetDate), // 返回 YYYY-MM-DD
+        timeStr: timeStr,
+        category: extractedCategory,
+        title: cleanTitle,
+        completed: false // 預設未完成
+      };
+    }
+
+    function addCalendarEvent() {
+      const inputEl = document.getElementById('calendar-input');
+      const text = inputEl.value.trim();
+      if (!text) { alert("無法發送空指令，請告訴助理您想安排什麼！"); return; }
+
+      const newEvent = processCalendarAI(text);
+      calendarEvents.unshift(newEvent);
+      localStorage.setItem('ai_calendar_events', JSON.stringify(calendarEvents));
+      
+      inputEl.value = '';
+      
+      // 如果這個事件不是創建在您正點擊的畫面上，為了方便檢視，把畫面跳轉過去
+      selectedDate = new Date(newEvent.date);
+      currentViewDate = new Date(newEvent.date);
+      
+      renderCalendarGrid(); // 全部刷新
+    }
+
+    function exportToICS() {
+      if (calendarEvents.length === 0) {
+        alert("目前沒有任何行程可以匯出！");
+        return;
+      }
+
+      // 生成 iCalendar 格式文字
+      let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//AI_Command_Center//TW\n";
+      
+      calendarEvents.forEach(e => {
+        const dateStr = e.date.replace(/-/g, ''); // 轉換格式為 YYYYMMDD
+        
+        icsContent += "BEGIN:VEVENT\n";
+        icsContent += `UID:${e.id}@ai-command-center\n`;
+        icsContent += `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\n`;
+        icsContent += `DTSTART;VALUE=DATE:${dateStr}\n`;
+        icsContent += `SUMMARY:${e.title}\n`;
+        icsContent += `DESCRIPTION:分類: ${e.category}\\n時間: ${e.timeStr}\n`;
+        if (e.completed) {
+          icsContent += `STATUS:COMPLETED\n`;
+        }
+        icsContent += "END:VEVENT\n";
+      });
+
+      icsContent += "END:VCALENDAR";
+
+      // 觸發下載
+      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Calendar_Export_${new Date().toISOString().slice(0,10)}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function importFromICS(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split(/\r?\n/);
+        
+        let inEvent = false;
+        let currentEvent = {};
+        let importedCount = 0;
+        
+        lines.forEach(line => {
+          if (line.startsWith('BEGIN:VEVENT')) {
+            inEvent = true;
+            currentEvent = { 
+              id: Date.now().toString() + Math.random().toString(36).substring(7), 
+              completed: false, 
+              category: "外部匯入", 
+              timeStr: "整日" 
+            };
+          } else if (line.startsWith('END:VEVENT')) {
+            inEvent = false;
+            if (currentEvent.date && currentEvent.title) {
+              // 檢查是否有完全一樣名稱與日期的事項
+              const checkDup = calendarEvents.find(ev => ev.title === currentEvent.title && ev.date === currentEvent.date);
+              if (!checkDup) {
+                calendarEvents.push(currentEvent);
+                importedCount++;
+              }
+            }
+          } else if (inEvent) {
+            // 解析標題
+            if (line.startsWith('SUMMARY:')) {
+              currentEvent.title = line.substring(8);
+            } 
+            // 擷取日期 (忽略時間，只抓 YYYYMMDD)
+            else if (line.startsWith('DTSTART')) {
+              const match = line.match(/:(\d{4})(\d{2})(\d{2})/);
+              if (match) {
+                currentEvent.date = `${match[1]}-${match[2]}-${match[3]}`; // 轉換成 YYYY-MM-DD
+              }
+            }
+          }
+        });
+
+        if (importedCount > 0) {
+          localStorage.setItem('ai_calendar_events', JSON.stringify(calendarEvents));
+          renderCalendarGrid();
+          alert(`✨ 成功將 ${file.name} 中的 ${importedCount} 筆行程，無縫匯入您的指揮中心！`);
+        } else {
+          alert("沒有找到可以匯入的行程，或者這些行程已經在您的指揮中心裡囉！");
+        }
+        
+        event.target.value = ''; // 歸零 input 讓下次可以重選相同檔
+      };
+      reader.readAsText(file);
+    }
+
+    // 當月曆頁面第一次被打開，執行最初的網格渲染
+    renderCalendarGrid();
+
+    /******************************************************************
+     * 3. 核心功能二：新聞觀測站 (Intelligence Hub)
+     ******************************************************************/
+    let globalNewsData = JSON.parse(localStorage.getItem('ai_hub_newsData')) || { lastSync: 'N/A', finance: [], langtech: [], migration: [] };
+
+    async function fetchExternalData(manualClick = false) {
+      try {
+        // 利用 cache busting 防止瀏覽器快取舊資料
+        const response = await fetch('news_briefing.json?t=' + Date.now());
+        if (!response.ok) throw new Error("news_briefing.json 讀取失敗");
+        
+        const data = await response.json();
+        globalNewsData = data; // 覆蓋全局變數
+        localStorage.setItem('ai_hub_newsData', JSON.stringify(globalNewsData)); // 儲存到 LocalStorage
+        
+        renderHubCards();
+        if (manualClick) alert("✨ 成功從 news_briefing.json 抓取最新情報數據！");
+      } catch (e) {
+        console.warn("外部加載失敗，切回 LocalStorage", e);
+        if (manualClick) alert("🚫 讀取 news_briefing.json 失敗！已維持 LocalStorage 中的舊有資料顯示。");
+        renderHubCards(); // 即使失敗仍重新渲染畫面上已有的 LocalStorage 內容
+      }
+    }
+
+    function renderHubCards() {
+      document.getElementById('hub-last-sync').innerText = `Last Sync: ${globalNewsData.lastSync || 'N/A'}`;
+      
+      const renderCol = (targetId, items) => {
+        const el = document.getElementById(targetId);
+        if (!items || items.length === 0) {
+          el.innerHTML = '<div style="font-size:12px; color:var(--text-muted); font-style:italic; padding:10px;">目前此板塊暫無任何相關情報。</div>';
+          return;
+        }
+        el.innerHTML = items.map(t => `
+          <div class="hub-card">
+            <div class="hub-card-time">${t.time}</div>
+            <div class="hub-card-title">${t.title}</div>
+            <div class="hub-card-summary">${t.summary}</div>
+          </div>
+        `).join('');
+      };
+
+      renderCol('hub-col-finance', globalNewsData.finance);
+      renderCol('hub-col-langtech', globalNewsData.langtech);
+      renderCol('hub-col-migration', globalNewsData.migration);
+    }
+    
+    function importLangTechNews() {
+      if (!globalNewsData.langtech || globalNewsData.langtech.length === 0) {
+        alert("目前觀測站內沒有最新的語言科技情報可供引用！");
+        return;
+      }
+      
+      let refHtml = `<div contenteditable="false" style="background:#FDFDFD; border-left: 3px solid var(--accent-color); padding:12px; margin: 12px 0; border-radius:4px; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">`;
+      refHtml += `<strong style="color:var(--accent-color); font-size:12px; font-weight:600; display:block; margin-bottom:8px;">【📝 參考智庫：今日語言科技焦點】</strong>`;
+      
+      globalNewsData.langtech.forEach(news => {
+        refHtml += `<div style="margin-bottom:8px;"><strong style="font-size:14px; color:var(--text-main);">${news.title}</strong><br><span style="color:var(--text-muted); font-size:13px; line-height:1.4;">${news.summary}</span></div>`;
+      });
+      refHtml += `</div><p><br></p>`;
+      
+      // 確保游標 Focus 並插入編輯內容
+      const lessonInputEl = document.getElementById('lesson-input');
+      lessonInputEl.focus();
+      document.execCommand('insertHTML', false, refHtml);
+      
+      const statusText = document.getElementById('save-status');
+      statusText.innerText = "✏️ 外部情報已引用，尚未儲存";
+      statusText.style.color = "var(--accent-color)";
+    }
+
+    // 初次載入自動嘗試抓取 (靜默模式: false)
+    fetchExternalData(false);
+
+    /******************************************************************
+     * 4. 核心功能三：教材設計實驗室 (Lesson Alchemist) - IndexedDB 富文本
+     ******************************************************************/
+    const DB_NAME = 'AICommandCenterDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'mediaAssets';
+    let db;
+
+    // 開啟/初始化 IndexedDB
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const database = e.target.result;
+          if (!database.objectStoreNames.contains(STORE_NAME)) {
+            database.createObjectStore(STORE_NAME);
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => reject('IndexedDB 系統發生錯誤', e);
+      });
+    }
+
+    // 寫入二進位檔 Blob 或純字串到 IndexedDB
+    function saveToDB(key, data) {
+      return new Promise((resolve, reject) => {
+        if(!db) return reject();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put(data, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e);
+      });
+    }
+
+    // 從 IndexedDB 讀出 Blob 或字串
+    function getFromDB(key) {
+      return new Promise((resolve) => {
+        if(!db) return resolve(null);
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+    }
+
+    const lessonInputEl = document.getElementById('lesson-input');
+    const statusText = document.getElementById('save-status');
+
+    // 手動觸發草稿存檔
+    async function manualSaveDraft() {
+      statusText.innerText = "⏳ 寫入硬碟中...";
+      statusText.style.color = "var(--text-muted)";
+      if(db) {
+         await saveToDB('lesson_draft_html', lessonInputEl.innerHTML);
+         statusText.innerText = "✔ 已儲存 (IndexedDB)";
+      } else {
+         await initDB();
+         await saveToDB('lesson_draft_html', lessonInputEl.innerHTML);
+         statusText.innerText = "✔ 已儲存 (IndexedDB)";
+      }
+    }
+
+    // 若有內容輸入，提示尚未儲存
+    lessonInputEl.addEventListener('input', () => {
+      statusText.innerText = "✏️ 尚未儲存修改 (請按儲存按鈕)";
+      statusText.style.color = "var(--accent-color)";
+    });
+
+    // 攔截並處理富文本「貼上」多媒體物件
+    lessonInputEl.addEventListener('paste', async (e) => {
+      const clipboardData = e.clipboardData || window.clipboardData;
+      if (!clipboardData) return;
+      
+      const items = clipboardData.items;
+      let hasMedia = false;
+      
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/') || item.type.startsWith('video/') || item.type.startsWith('audio/')) {
+          e.preventDefault(); // 攔截瀏覽器預設的純文字/Base64貼上行為
+          hasMedia = true;
+          
+          const file = item.getAsFile();
+          if (!file) continue;
+
+          // 產生唯一的 UUID 給資料庫提取
+          const mediaId = 'media_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+          
+          statusText.innerText = "⏳ 媒體寫入中...";
+          
+          // 將實際的二進位檔案寫入 IndexedDB，解決大容量限制
+          await saveToDB(mediaId, file);
+          
+          // 創造只在「當次載入存在」的虛擬資源 URL，用來即時預覽
+          const blobUrl = URL.createObjectURL(file);
+          
+          // 將擁有自訂 data-db-id 的 HTML Tag 插入編輯區
+          insertMediaTag(item.type, blobUrl, mediaId);
+        }
+      }
+      
+      if (hasMedia) {
+        statusText.innerText = "✏️ 媒體已預覽，尚未儲存修改";
+        statusText.style.color = "var(--accent-color)";
+      }
+    });
+
+    function insertMediaTag(type, url, id) {
+      let html = '';
+      if (type.startsWith('image/')) {
+        html = `<div class="media-container" contenteditable="false"><img data-db-id="${id}" src="${url}" style="max-height: 250px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>`;
+      } else if (type.startsWith('video/')) {
+        html = `<div class="media-container" contenteditable="false"><video data-db-id="${id}" controls src="${url}" style="max-height: 250px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></video></div>`;
+      } else if (type.startsWith('audio/')) {
+        html = `<div class="media-container" contenteditable="false"><audio data-db-id="${id}" controls src="${url}" style="width: 100%;"></audio></div>`;
+      }
+      // 使用瀏覽器內建文字游標插入
+      document.execCommand('insertHTML', false, html + '<p><br></p>');
+    }
+
+    // 網頁起始起手式：載入資料庫並重新提取二進位影音檔
+    async function loadLessonDraft() {
+      try {
+        await initDB();
+        const draftHtml = await getFromDB('lesson_draft_html');
+        if (draftHtml) {
+          lessonInputEl.innerHTML = draftHtml;
+          
+          // 若畫面中有上次被加上 `data-db-id` 存起來的媒體
+          const mediaElements = lessonInputEl.querySelectorAll('[data-db-id]');
+          for (let el of mediaElements) {
+            const id = el.getAttribute('data-db-id');
+            // 回到硬碟裡把沈睡的二進位 Blob 從 IndexedDB 喚醒
+            const fileBlob = await getFromDB(id);
+            if (fileBlob) {
+              el.src = URL.createObjectURL(fileBlob); // 再次產生視覺 URL 提供渲染
+            } else {
+              el.outerHTML = `<div style="color: dimgrey; font-size:12px; font-style:italic; padding:10px; border:1px dashed #ccc;">[多媒體檔案 ${id} 似乎已從本地遺失]</div>`;
+            }
+          }
+        }
+      } catch(err) {
+        console.error("無法加載 IndexedDB", err);
+      }
+    }
+    
+    // 啟動讀取
+    loadLessonDraft();
+
+    let cachedExportHtml = '';
+
+    function transformLessonContent() {
+      // 在教案實驗室這個階段，AI 解析的是「語義內容」，所以我們只擷取純文字 innerText 即可。不需將 Blob 直接餵給外部
+      const textContent = lessonInputEl.innerText.trim();
+      if (!textContent) {
+        alert("文字區塊看起來沒有可以被轉換的筆記內容哦！");
+        return;
+      }
+
+      // 模擬生成經過解析的結果
+      const fakeTextModuleHTML = `
+        <h3 style="color:#2E3440;">【單元知識拆解】</h3>
+        <p><strong>核心目標：</strong> 從原始內容提煉的系統化教學目標。</p>
+        <p><strong>教學引導邏輯：</strong></p>
+        <p>可以利用此段落向學生展示從雜亂的資訊中抽絲剝繭的過程。</p>
+        <div style="background:#F5F5F5; padding:10px; font-size:13px;">[源自您的文字段落首 50 字]：${textContent.substring(0, 50)}...</div>
+      `;
+      const fakeImagePrompt = "Kodak Portra 400 photography style, a neat minimalist desk with organized notes and a futuristic glowing crystal symbolizing knowledge transformation, soft natural lighting, high aesthetic --ar 16:9";
+
+      document.getElementById('asset-text-module').innerHTML = fakeTextModuleHTML;
+      document.getElementById('asset-prompt-module').innerText = fakeImagePrompt;
+      document.getElementById('assets-preview-container').style.display = 'block';
+
+      cachedExportHtml = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>教材資產匯出包</title><style>body{font-family:sans-serif; max-width:800px; margin:40px auto; line-height:1.6; color:#2E3440; background:#F5F5F5; padding:20px;} .box{background:white; padding:30px; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.05); margin-bottom:20px;} h2{color:#5E81AC; border-bottom:2px solid #EBF0EC; padding-bottom:8px;} .prompt{background:#2E3440; color:#EBF0EC; padding:15px; border-radius:6px; font-family:monospace;}</style></head><body><div class="box"><h2>📓 文字教學模組</h2>${fakeTextModuleHTML}</div><div class="box"><h2>🎨 AI 視覺提示詞</h2><div class="prompt">${fakeImagePrompt}</div></div></body></html>`;
+    }
+
+    function exportAssetsPackage() {
+      if (!cachedExportHtml) return;
+      const blob = new Blob([cachedExportHtml], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const aObj = document.createElement('a');
+      aObj.href = url;
+      aObj.download = `AI_Asset_Export_${new Date().toISOString().slice(0,10)}.html`;
+      document.body.appendChild(aObj);
+      aObj.click();
+      document.body.removeChild(aObj);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
