@@ -960,7 +960,7 @@
           return;
         }
         el.innerHTML = items.map(t => `
-          <div class="hub-card">
+          <div class="hub-card" style="cursor: pointer;" onclick="if('${t.link || ''}' !== '' && '${t.link || ''}' !== '#') window.open('${t.link || '#'}', '_blank')">
             <div class="hub-card-time">${t.time}</div>
             <div class="hub-card-title">${t.title}</div>
             <div class="hub-card-summary">${t.summary}</div>

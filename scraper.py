@@ -47,10 +47,13 @@ def fetch_google_news(keyword, limit=3):
             if not summary:
                 summary = "點擊以查看完整新聞"
 
+            link_text = item.find('link').text if item.find('link') is not None else "#"
+
             news_list.append({
                 "time": time_str,
                 "title": title_text,
-                "summary": summary
+                "summary": summary,
+                "link": link_text
             })
         return news_list
     except Exception as e:
