@@ -460,14 +460,31 @@
       word-wrap: break-word;
     }
   </style>
+
+  <!-- Firebase Compat Libraries -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
 </head>
 <body>
+
+  <!-- 雲端登入遮罩 (Login Overlay) -->
+  <div id="login-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:var(--bg-color);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;">
+    <h1 style="color:var(--accent-color);margin-bottom:20px;font-size:32px;font-weight:600;">AI 成長指揮中心</h1>
+    <p style="color:var(--text-muted);margin-bottom:30px;font-size:15px;">您的資料將跨裝置即時私密同步，請登入開始使用</p>
+    <button class="btn" onclick="signInWithGoogle()" style="padding:14px 28px;font-size:16px;">
+        <svg style="width:20px;height:20px;margin-right:8px;" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,4.73 12.2,4.73C15.29,4.73 17.1,6.7 17.1,6.7L19,4.72C19,4.72 16.56,2 12.1,2C6.42,2 2.03,6.8 2.03,12C2.03,17.05 6.16,22 12.25,22C17.6,22 21.5,18.33 21.5,12.91C21.5,11.76 21.35,11.1 21.35,11.1V11.1Z" /></svg>
+        以 Google 帳號安全登入
+    </button>
+  </div>
 
   <!-- 置頂導覽列 -->
   <nav class="navbar">
     <button class="tab-btn active" onclick="switchTab('calendar', this)">智慧行事曆</button>
     <button class="tab-btn" onclick="switchTab('hub', this)">新聞觀測站</button>
     <button class="tab-btn" onclick="switchTab('alchemist', this)">教材設計實驗室</button>
+    <button class="tab-btn" onclick="signOutCloud()" style="flex:0 0 auto; color:#D9534F; font-size:13px; font-weight: 500;">登出</button>
   </nav>
   
   <!-- ==========================================
@@ -604,6 +621,52 @@
 
   <script>
     /******************************************************************
+     * 0. Firebase 初始化與帳號驗證 (Auth & Global State)
+     ******************************************************************/
+    const firebaseConfig = {
+      apiKey: "AIzaSyAsew0iumbFWhJLSbey7hEIyQznhDd0Ux4",
+      authDomain: "ai-command-center-442af.firebaseapp.com",
+      projectId: "ai-command-center-442af",
+      storageBucket: "ai-command-center-442af.firebasestorage.app",
+      messagingSenderId: "322113088377",
+      appId: "1:322113088377:web:8867ce8b48e33317c25da8"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    let currentUser = null;
+    let unsubscribeEvents = null;
+
+    // 監聽登入狀態
+    auth.onAuthStateChanged(user => {
+      const overlay = document.getElementById('login-overlay');
+      if (user) {
+        currentUser = user;
+        overlay.style.display = 'none';
+        
+        // 觸發遠端資料庫同步
+        startCloudSync();
+      } else {
+        currentUser = null;
+        overlay.style.display = 'flex';
+        // 停止之前的監聽
+        if (unsubscribeEvents) unsubscribeEvents();
+      }
+    });
+
+    function signInWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(err => alert("登入失敗：" + err.message));
+    }
+
+    function signOutCloud() {
+      if(confirm('確定要登出嗎？未儲存的檔案可能會丟失。')) {
+        auth.signOut();
+      }
+    }
+
+    /******************************************************************
      * 1. 基礎架構：分頁切換邏輯
      ******************************************************************/
     function switchTab(tabId, btnElement) {
@@ -614,10 +677,59 @@
     }
 
     /******************************************************************
-     * 2. 核心功能一：智慧行事曆 (Calendar Hub - Google Grid & Todo)
+     * 2. 核心功能一：智慧行事曆 (Calendar Hub - Cloud Sync)
      ******************************************************************/
     // Data Model: [{ id, date: "YYYY-MM-DD", timeStr, category, title, completed }]
-    let calendarEvents = JSON.parse(localStorage.getItem('ai_calendar_events') || '[]');
+    let calendarEvents = [];
+    
+    // 即時同步函數
+    function startCloudSync() {
+      if(!currentUser) return;
+      
+      const docRef = db.collection('users').doc(currentUser.uid);
+      
+      // 1. 同步行事曆
+      unsubscribeEvents = docRef.collection('data').doc('calendar').onSnapshot(docSnap => {
+        if (docSnap.exists) {
+          const data = docSnap.data();
+          if (data.events) {
+            calendarEvents = data.events;
+            renderCalendarGrid(); // 即時刷新畫面
+          }
+        } else {
+          // 如果是一手新帳號，將本地端的舊資料上傳作為初始值（如果有的話）
+          const localEvents = JSON.parse(localStorage.getItem('ai_calendar_events') || '[]');
+          if(localEvents.length > 0) {
+            calendarEvents = localEvents;
+            saveEventsToCloud();
+          }
+        }
+      });
+      
+      // 2. 同步教材草稿 (只需一次載入，不強制打擾正在編輯的人，由他們手動存)
+      docRef.collection('data').doc('lesson_draft').get().then(docSnap => {
+         if (docSnap.exists) {
+           const draftHtml = docSnap.data().html;
+           if(draftHtml) {
+             document.getElementById('lesson-input').innerHTML = draftHtml;
+             // 我們保留 IndexedDB 來喚醒圖片 Blob (因為圖片沒跟著文字存進純文字字串)
+             // (下方 loadLessonDraft 依然維持其喚醒 blob 的責任)
+           }
+         }
+      });
+    }
+
+    // 寫入遠端行事曆
+    function saveEventsToCloud() {
+      if(!currentUser) return;
+      db.collection('users').doc(currentUser.uid).collection('data').doc('calendar').set({
+        events: calendarEvents,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge: true}).catch(err => console.error("雲端存檔失敗: ", err));
+      
+      // 順便保持本地備份，以防斷網
+      localStorage.setItem('ai_calendar_events', JSON.stringify(calendarEvents));
+    }
     
     // View State
     let currentViewDate = new Date();
@@ -760,7 +872,7 @@
       if (targetEvent) {
         targetEvent.completed = isChecked;
         // 覆寫存檔確保狀態同步
-        localStorage.setItem('ai_calendar_events', JSON.stringify(calendarEvents));
+        saveEventsToCloud();
         renderCalendarGrid(); // 重新觸發刷新，讓方格裡的標籤也會變為已完成樣式
       }
     }
@@ -814,7 +926,7 @@
 
       const newEvent = processCalendarAI(text);
       calendarEvents.unshift(newEvent);
-      localStorage.setItem('ai_calendar_events', JSON.stringify(calendarEvents));
+      saveEventsToCloud();
       
       inputEl.value = '';
       
@@ -911,7 +1023,7 @@
         });
 
         if (importedCount > 0) {
-          localStorage.setItem('ai_calendar_events', JSON.stringify(calendarEvents));
+          saveEventsToCloud();
           renderCalendarGrid();
           alert(`✨ 成功將 ${file.name} 中的 ${importedCount} 筆行程，無縫匯入您的指揮中心！`);
         } else {
@@ -1006,7 +1118,7 @@
     const DB_NAME = 'AICommandCenterDB';
     const DB_VERSION = 1;
     const STORE_NAME = 'mediaAssets';
-    let db;
+    let localDb;
 
     // 開啟/初始化 IndexedDB
     function initDB() {
@@ -1019,8 +1131,8 @@
           }
         };
         request.onsuccess = (e) => {
-          db = e.target.result;
-          resolve(db);
+          localDb = e.target.result;
+          resolve(localDb);
         };
         request.onerror = (e) => reject('IndexedDB 系統發生錯誤', e);
       });
@@ -1029,8 +1141,8 @@
     // 寫入二進位檔 Blob 或純字串到 IndexedDB
     function saveToDB(key, data) {
       return new Promise((resolve, reject) => {
-        if(!db) return reject();
-        const tx = db.transaction(STORE_NAME, 'readwrite');
+        if(!localDb) return reject();
+        const tx = localDb.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
         store.put(data, key);
         tx.oncomplete = () => resolve();
@@ -1041,8 +1153,8 @@
     // 從 IndexedDB 讀出 Blob 或字串
     function getFromDB(key) {
       return new Promise((resolve) => {
-        if(!db) return resolve(null);
-        const tx = db.transaction(STORE_NAME, 'readonly');
+        if(!localDb) return resolve(null);
+        const tx = localDb.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
         const req = store.get(key);
         req.onsuccess = () => resolve(req.result);
@@ -1055,16 +1167,28 @@
 
     // 手動觸發草稿存檔
     async function manualSaveDraft() {
-      statusText.innerText = "⏳ 寫入硬碟中...";
+      statusText.innerText = "⏳ 寫入雲端與硬碟中...";
       statusText.style.color = "var(--text-muted)";
-      if(db) {
-         await saveToDB('lesson_draft_html', lessonInputEl.innerHTML);
-         statusText.innerText = "✔ 已儲存 (IndexedDB)";
+      
+      const draftContent = lessonInputEl.innerHTML;
+      
+      // 1. 本機備援 (含圖片二進位支援)
+      if(localDb) {
+         await saveToDB('lesson_draft_html', draftContent);
       } else {
          await initDB();
-         await saveToDB('lesson_draft_html', lessonInputEl.innerHTML);
-         statusText.innerText = "✔ 已儲存 (IndexedDB)";
+         await saveToDB('lesson_draft_html', draftContent);
       }
+      
+      // 2. 雲端備份 (只含文字與圖片標籤，不含二進位 Blob)
+      if (currentUser) {
+         await db.collection('users').doc(currentUser.uid).collection('data').doc('lesson_draft').set({
+           html: draftContent,
+           lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+         }, {merge: true}).catch(e => console.error("草稿雲端存檔失敗", e));
+      }
+
+      statusText.innerText = "✔ 已雙重儲存 (雲端 + 本機)";
     }
 
     // 若有內容輸入，提示尚未儲存
